@@ -9,7 +9,8 @@ struct ContentView: View {
         ScrollViewReader { scrollProxy in
             ScrollView(showsIndicators: false) {
                 LazyVStack {
-                    Text("Load more...")
+                    ProgressView()
+                        .padding(.all, 4)
                     /*
                         .onAppear {
                             Task {
@@ -22,7 +23,8 @@ struct ContentView: View {
                         Text(vm.text).id(vm.id)
                         Divider()
                     }
-                    Text("Load more...")
+                    ProgressView()
+                        .padding()
                         .onAppear {
                             Task {
                                 try await viewModel.loadMoreAfter()
