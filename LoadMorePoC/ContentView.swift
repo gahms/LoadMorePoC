@@ -3,13 +3,14 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var viewModel = ContentViewModel()
     @State private var pendingScroll: ContentRowViewModel?
-    @State private var offset = CGFloat.zero
+    @State private var atTop: Bool = true
 
     var body: some View {
         ScrollViewReader { scrollProxy in
             ScrollView(showsIndicators: false) {
                 LazyVStack {
                     ProgressView()
+                        .tint(viewModel.loading ? .blue : .gray)
                         .padding(.all, 4)
                     /*
                         .onAppear {
@@ -23,30 +24,39 @@ struct ContentView: View {
                         Text(vm.text).id(vm.id)
                         Divider()
                     }
-                    ProgressView()
-                        .padding()
-                        .onAppear {
-                            Task {
-                                try await viewModel.loadMoreAfter()
+                    if !viewModel.rows.isEmpty {
+                        ProgressView()
+                            .padding()
+                            .onAppear {
+                                Task {
+                                    try await viewModel.loadMoreAfter()
+                                }
                             }
-                        }
+                    }
                 }
                 .background(GeometryReader {
                     Color.clear.preference(key: ViewOffsetKey.self,
                                            value: -$0.frame(in: .named("scroll")).origin.y)
                 })
                 .onPreferenceChange(ViewOffsetKey.self) {
-                    offset = $0
+                    if $0 <= 0 && atTop != true {
+                        atTop = true
+                    }
+                    else if $0 > 0 && atTop != false {
+                        atTop = false
+                    }
                 }
             }
             .coordinateSpace(name: "scroll")
+            /*
             .onAppear {
                 print("ScrollView.onAppear")
                 let initialFirstRow = viewModel.rows[50]
                 scrollProxy.scrollTo(initialFirstRow.id)
             }
-            .onChange(of: self.offset) { o in
-                if o == 0 {
+             */
+            .onChange(of: self.atTop) { o in
+                if atTop {
                     Task {
                         pendingScroll = try await viewModel.loadMoreBefore()
                     }
@@ -58,6 +68,9 @@ struct ContentView: View {
                 print("scroll to \(vm.index)")
                 scrollProxy.scrollTo(vm.id, anchor: .top)
                 self.pendingScroll = nil
+            }
+            .task {
+                pendingScroll = await viewModel.load()
             }
         }
     }

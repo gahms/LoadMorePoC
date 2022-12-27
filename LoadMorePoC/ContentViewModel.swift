@@ -4,9 +4,30 @@ import SwiftUI
 @MainActor
 class ContentViewModel: ObservableObject {
     private var _firstLoadMoreBefore: Bool = false
+
+    @Published var rows: [ContentRowViewModel] = []
+    @Published var loading: Bool = false
     
-    @Published var rows: [ContentRowViewModel] = (100..<200).map {
-        ContentRowViewModel(index: $0, text: "Line \($0)")
+    func load() async -> ContentRowViewModel? {
+        print("\(#function)...")
+        loading = true
+        defer { loading = false }
+        
+        do {
+            try await Task.sleep(
+                until: .now + .seconds(2),
+                clock: .suspending
+            )
+            rows = (100..<200).map {
+                ContentRowViewModel(index: $0, text: "Line \($0)")
+            }
+            
+            return rows[50]
+        }
+        catch {
+            // CancellationError
+            return nil
+        }
     }
     
     func loadMoreBefore() async throws -> ContentRowViewModel? {
@@ -14,6 +35,9 @@ class ContentViewModel: ObservableObject {
             _firstLoadMoreBefore = false
             return nil
         }
+        loading = true
+        defer { loading = false }
+
         print("\(#function)...")
         try await Task.sleep(
             until: .now + .seconds(2),
@@ -32,6 +56,13 @@ class ContentViewModel: ObservableObject {
     }
 
     func loadMoreAfter() async throws {
+        if rows.isEmpty {
+            return
+        }
+        
+        loading = true
+        defer { loading = false }
+
         print("\(#function)...")
         try await Task.sleep(
             until: .now + .seconds(2),
