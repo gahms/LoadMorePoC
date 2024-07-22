@@ -1,68 +1,49 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var viewModel = ContentViewModel()
+    @State private var viewModel = ContentViewModel()
     @State private var pendingScroll: ContentRowViewModel?
-    @State private var atTop: Bool = true
 
     var body: some View {
         ScrollViewReader { scrollProxy in
             ScrollView(showsIndicators: false) {
-                LazyVStack {
+                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
                     ProgressView()
                         .tint(viewModel.loading ? .blue : .gray)
                         .padding(.all, 4)
-                    /*
                         .onAppear {
-                            Task {
-                                _ = try await viewModel.loadMoreBefore()
-                            }
+                            pendingScroll = viewModel.loadSectionMoreBefore()
                         }
-                     */
                     Divider()
-                    ForEach(viewModel.rows) { vm in
-                        Text(vm.text).id(vm.id)
-                        Divider()
+                    ForEach(viewModel.sections) { section in
+                        Section {
+                            ForEach(section.rows) { row in
+                                Text(row.text)
+                                    .padding()
+                                    .id(row.id)
+                                Divider()
+                            }
+                        } header: {
+                            HStack {
+                                Spacer()
+                                Text("\(section.text)")
+                                    .foregroundStyle(.white)
+                                Spacer()
+                            }
+                            .padding()
+                            .background(.secondary)
+                        }
                     }
-                    if !viewModel.rows.isEmpty {
+                    if viewModel.isNotEmpty {
                         ProgressView()
                             .padding()
                             .onAppear {
-                                Task {
-                                    try await viewModel.loadMoreAfter()
-                                }
+                                viewModel.loadSectionMoreAfter()
                             }
                     }
                 }
-                .background(GeometryReader {
-                    Color.clear.preference(key: ViewOffsetKey.self,
-                                           value: -$0.frame(in: .named("scroll")).origin.y)
-                })
-                .onPreferenceChange(ViewOffsetKey.self) {
-                    if $0 <= 0 && atTop != true {
-                        atTop = true
-                    }
-                    else if $0 > 0 && atTop != false {
-                        atTop = false
-                    }
-                }
             }
-            .coordinateSpace(name: "scroll")
-            /*
-            .onAppear {
-                print("ScrollView.onAppear")
-                let initialFirstRow = viewModel.rows[50]
-                scrollProxy.scrollTo(initialFirstRow.id)
-            }
-             */
-            .onChange(of: self.atTop) { o in
-                if atTop {
-                    Task {
-                        pendingScroll = try await viewModel.loadMoreBefore()
-                    }
-                }
-            }
-            .onChange(of: self.pendingScroll) { vm in
+            .onChange(of: self.pendingScroll) { _, vm in
                 guard let vm = vm else { return }
 
                 print("scroll to \(vm.index)")
@@ -70,7 +51,7 @@ struct ContentView: View {
                 self.pendingScroll = nil
             }
             .task {
-                pendingScroll = await viewModel.load()
+                pendingScroll = await viewModel.loadSections()
             }
         }
     }
